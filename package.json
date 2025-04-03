@@ -1,0 +1,54 @@
+{
+  "name": "mcp-server-novacv",
+  "version": "1.0.0",
+  "description": "MCP service for NovaCV API - Generate, analyze and convert resumes with NovaCV API",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "mcp-server-novacv": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector@0.8.0 build/index.js",
+    "start": "node build/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "test": "ts-node test.ts",
+    "debug": "npm run build && npm run inspector",
+    "run": "npm run build && npm start"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "form-data": "^4.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "0.8.0",
+    "@types/node": "^20.17.30",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2"
+  },
+  "keywords": [
+    "mcp",
+    "resume",
+    "novacv",
+    "model-context-protocol",
+    "ai"
+  ],
+  "author": "NovaCV Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/mcp-server-novacv"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
