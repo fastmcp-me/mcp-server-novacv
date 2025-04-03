@@ -21,7 +21,7 @@ function parseArgs() {
       showHelp();
       process.exit(0);
     } else if (arg === "--version" || arg === "-v") {
-      console.log("mcp-server-novacv v1.0.0");
+      console.log("mcp-server-novacv v1.0.2");
       process.exit(0);
     }
   });
@@ -32,7 +32,7 @@ function parseArgs() {
 function showHelp() {
   console.log(`
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃              NovaCV MCP 服务 v1.0.0               ┃
+┃              NovaCV MCP 服务 v1.0.2               ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 使用方法: 
@@ -111,72 +111,77 @@ const safeStringify = (data: any): string => {
 
 // 定义工具
 server.tool(
-  "generate_resume",
-  "Generate a PDF resume from JSON Resume data",
+  "generate_resume_from_text",
+  "一键将简历文本转换为精美PDF简历，支持多种模板。只需提供简历文本内容，系统会自动进行格式转换并生成专业PDF文件，无需手动处理JSON数据。可选择不同简历模板和定制选项。",
   {
-    resumeData: z.any(),  // 改为z.any()以接受任何类型的输入
+    resumeText: z.string(),
     templateName: z.string().optional(),
     options: z.object({}).optional()
   },
-  async ({ resumeData, templateName = "elite", options = {} }, extra) => {
-    if (!resumeData) {
-      throw new Error("简历数据是必需的");
+  async ({ resumeText, templateName = "elite", options = {} }, extra) => {
+    if (!resumeText) {
+      throw new Error("简历文本是必需的");
     }
     
     try {
-      // 处理resumeData作为正确的简历数据对象
-      let processedResumeData: any;
+      // 第一步：将文本转换为JSON Resume格式
+      const convertResult = await novaCVService.convertTextToJsonResume(resumeText);
       
-      // 强化JSON字符串检测和处理
-      if (typeof resumeData === 'string') {
-        try {
-          // 尝试解析JSON字符串
-          processedResumeData = JSON.parse(resumeData);
-        } catch (e: any) {
-          // 查看字符串内容，尝试清理和再次解析
-          const trimmed = resumeData.trim();
-          
-          try {
-            // 尝试去除可能有的引号包装
-            if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
-                (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-              const unwrapped = trimmed.substring(1, trimmed.length - 1).replace(/\\"/g, '"');
-              processedResumeData = JSON.parse(unwrapped);
-            } else {
-              throw new Error("无法解析JSON字符串");
-            }
-          } catch (e2: any) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `错误: resumeData不是有效的JSON格式: ${e2.message}\n\n请确保提供有效的JSON对象或不带转义的JSON字符串。`
-                }
-              ],
-            };
-          }
-        }
-      } else if (typeof resumeData === 'object') {
-        // 如果已经是对象，直接使用
-        processedResumeData = resumeData;
-      } else {
+      // 调试输出API响应结构
+      console.log("转换API响应:", JSON.stringify(convertResult, null, 2));
+      
+      if (!convertResult || convertResult.error) {
         return {
           content: [
             {
               type: "text",
-              text: `错误: resumeData类型不支持: ${typeof resumeData}`
+              text: `转换简历文本失败: ${convertResult?.error?.message || convertResult?.message || "未知错误"}`
             }
           ],
         };
       }
       
-      // 不再进行数据校验和默认值设置，直接传递原始数据
-      const result = await novaCVService.generateResume(processedResumeData, templateName, options);
+      // 根据实际API响应结构获取简历数据
+      // 尝试多种可能的路径
+      let resumeData = null;
+      if (convertResult.data && convertResult.data.resumeData) {
+        resumeData = convertResult.data.resumeData;
+      } else if (convertResult.data && convertResult.data.jsonResume) {
+        // 处理API返回的jsonResume路径
+        resumeData = convertResult.data.jsonResume;
+      } else if (convertResult.resumeData) {
+        resumeData = convertResult.resumeData;
+      } else if (convertResult.jsonResume) {
+        resumeData = convertResult.jsonResume;
+      } else if (typeof convertResult === 'object' && Object.keys(convertResult).length > 0) {
+        // 如果响应本身就是简历数据对象
+        if (convertResult.basics || convertResult.work || convertResult.education) {
+          resumeData = convertResult;
+        }
+      }
+      
+      // 检查是否获取到简历数据
+      if (!resumeData) {
+        // 输出完整响应以帮助调试
+        return {
+          content: [
+            {
+              type: "text",
+              text: `转换成功但无法获取简历数据。API响应:\n${JSON.stringify(convertResult, null, 2)}`
+            }
+          ],
+        };
+      }
+      
+      // 第二步：使用JSON Resume数据生成PDF
+      console.log("使用以下数据生成PDF:", JSON.stringify(resumeData, null, 2));
+      const generateResult = await novaCVService.generateResume(resumeData, templateName, options);
+      
       return {
         content: [
           {
             type: "text",
-            text: safeStringify(result)
+            text: safeStringify(generateResult)
           }
         ],
       };
@@ -195,7 +200,7 @@ server.tool(
 
 server.tool(
   "get_templates",
-  "Get all available resume templates",
+  "获取所有可用的简历模板，返回模板列表及其详细信息，包括模板ID、名称、缩略图等。帮助用户选择最适合的简历风格。",
   {},
   async (_, extra) => {
     try {
@@ -223,7 +228,7 @@ server.tool(
 
 server.tool(
   "convert_resume_text",
-  "Convert resume text to JSON Resume format",
+  "将纯文本格式的简历内容转换为标准JSON Resume格式。系统会智能识别简历中的各个部分（如个人信息、工作经历、教育背景等），并按照国际通用的JSON Resume标准进行结构化处理，方便后续编辑和格式转换。",
   {
     resumeText: z.string()
   },
@@ -257,7 +262,7 @@ server.tool(
 
 server.tool(
   "analyze_resume_text",
-  "Analyze resume text content",
+  "对简历文本进行深度分析，提供专业评估和改进建议。系统会分析简历的完整性、关键词使用、技能匹配度等方面，并给出针对性的优化建议，帮助求职者打造更具竞争力的简历。",
   {
     resumeText: z.string()
   },
@@ -289,92 +294,6 @@ server.tool(
   }
 );
 
-server.tool(
-  "validate_resume_data",
-  "验证简历数据格式是否符合要求",
-  {
-    resumeData: z.any() // 接受任何类型的输入
-  },
-  async ({ resumeData }, extra) => {
-    try {
-      let validatedData: any;
-      let issues: string[] = [];
-      
-      // 解析JSON (如果是字符串)
-      if (typeof resumeData === 'string') {
-        try {
-          validatedData = JSON.parse(resumeData);
-        } catch (e: any) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `❌ 无效的JSON字符串格式: ${e.message}`
-              }
-            ],
-          };
-        }
-      } else if (typeof resumeData === 'object') {
-        validatedData = resumeData;
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `❌ 不支持的数据类型: ${typeof resumeData}`
-            }
-          ],
-        };
-      }
-      
-      // 验证数据结构
-      if (!validatedData) {
-        issues.push("❌ 数据为空");
-      } else {
-        // 检查基本字段
-        if (!validatedData.basics) {
-          issues.push("❌ 缺少 'basics' 字段");
-        } else {
-          if (!validatedData.basics.name) issues.push("⚠️ 缺少 'basics.name' 字段");
-          if (!validatedData.basics.email) issues.push("⚠️ 缺少 'basics.email' 字段");
-        }
-        
-        // 检查关键数组字段
-        ['work', 'education', 'skills'].forEach(field => {
-          if (!Array.isArray(validatedData[field])) {
-            issues.push(`⚠️ '${field}' 不是数组或不存在`);
-          } else if (validatedData[field].length === 0) {
-            issues.push(`⚠️ '${field}' 数组为空`);
-          }
-        });
-      }
-      
-      // 返回验证结果
-      const isPassing = issues.length === 0;
-      
-      return {
-        content: [
-          {
-            type: "text",
-            text: isPassing 
-              ? "✅ 简历数据格式验证通过！\n\n" + JSON.stringify(validatedData, null, 2)
-              : "简历数据验证结果:\n" + issues.join("\n") + "\n\n数据内容:\n" + JSON.stringify(validatedData, null, 2)
-          }
-        ],
-      };
-    } catch (error: any) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `验证时发生错误: ${error.message || "未知错误"}`
-          }
-        ],
-      };
-    }
-  }
-);
-
 // 包装主函数以支持顶层await
 const main = async () => {
   try {
@@ -388,7 +307,7 @@ const main = async () => {
     if (isDirectRun) {
       console.log(`
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃              NovaCV MCP 服务 v1.0.0               ┃
+┃              NovaCV MCP 服务 v1.0.2               ┃
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
 服务已启动，正在等待 MCP 客户端连接...

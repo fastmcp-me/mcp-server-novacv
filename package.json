@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-novacv",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "MCP service for NovaCV API - Generate, analyze and convert resumes with NovaCV API",
   "main": "build/index.js",
   "type": "module",

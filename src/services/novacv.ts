@@ -8,9 +8,18 @@ interface ResumeOptions {
 }
 
 interface GenerateResumeResponse {
-  fileId: string;
-  url: string;
-  [key: string]: any;
+  success: boolean;
+  message?: string;
+  data?: {
+    fileUrl: string;
+    fileId: string;
+    fileName: string;
+    templateName: string;
+  };
+  error?: {
+    message: string;
+    code: string;
+  };
 }
 
 interface Template {
@@ -21,8 +30,18 @@ interface Template {
 }
 
 interface ConvertResponse {
-  resumeData: any;
-  [key: string]: any;
+  success: boolean;
+  message?: string;
+  data?: {
+    resumeData?: any;
+    jsonResume?: any;
+  };
+  error?: {
+    message: string;
+    code: string;
+  };
+  resumeData?: any;
+  jsonResume?: any;
 }
 
 interface AnalyzeResponse {
@@ -129,11 +148,44 @@ export class NovaCVService {
    */
   async convertTextToJsonResume(resumeText: string): Promise<any> {
     try {
+      console.log("开始转换简历文本为JSON格式");
       const response = await this.client.post('/api/v1/resumes/convert-text', {
         resumeText
       });
+      console.log("转换API响应状态码:", response.status);
+      console.log("转换API响应头:", JSON.stringify(response.headers, null, 2));
+      console.log("转换API响应数据类型:", typeof response.data);
+      
+      // 如果直接返回简历数据，自动包装为标准格式
+      if (response.data && typeof response.data === 'object') {
+        // 检查是否缺少标准响应结构
+        if (!response.data.success && !response.data.data && !response.data.error) {
+          // 检查是否是简历数据结构
+          if (response.data.basics || response.data.work || response.data.education) {
+            return {
+              success: true,
+              data: {
+                jsonResume: response.data
+              }
+            };
+          }
+        } 
+        // 标准化响应 - 确保jsonResume数据在一致的位置
+        else if (response.data.success && response.data.data) {
+          // 如果有data.resumeData但没有data.jsonResume，复制数据
+          if (response.data.data.resumeData && !response.data.data.jsonResume) {
+            response.data.data.jsonResume = response.data.data.resumeData;
+          }
+          // 如果有data.jsonResume但没有data.resumeData，复制数据
+          else if (response.data.data.jsonResume && !response.data.data.resumeData) {
+            response.data.data.resumeData = response.data.data.jsonResume;
+          }
+        }
+      }
+      
       return response.data;
     } catch (error) {
+      console.error("转换简历文本失败:", error);
       this._handleError(error);
       throw error;
     }
