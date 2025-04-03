@@ -133,25 +133,28 @@ NOVACV_API_BASE_URL=https://api.nova-cv.com
 
 MCP 服务器提供以下工具：
 
-- `generate_resume`: 生成简历 PDF
-- `get_templates`: 获取可用模板列表
-- `convert_resume_text`: 转换简历文本为 JSON Resume 格式
-- `analyze_resume_text`: 分析简历文本
-- `validate_resume_data`: 验证简历数据格式是否符合要求
+- `generate_resume_from_text`: 一键将简历文本转换为精美PDF简历，支持多种模板。只需提供简历文本内容，系统会自动进行格式转换并生成专业PDF文件，无需手动处理JSON数据
+- `get_templates`: 获取所有可用的简历模板，返回模板列表及其详细信息，包括模板ID、名称、缩略图等
+- `convert_resume_text`: 将纯文本格式的简历内容转换为标准JSON Resume格式。系统会智能识别简历中的各个部分，并按照国际通用的JSON Resume标准进行结构化处理
+- `analyze_resume_text`: 对简历文本进行深度分析，提供专业评估和改进建议。系统会分析简历的完整性、关键词使用、技能匹配度等方面，并给出针对性的优化建议
 
 ## 使用示例
 
 ### 获取模板列表
 
-在支持 MCP 的客户端中使用 `/get_templates` 命令获取所有可用的简历模板。
+在支持 MCP 的客户端中使用 `mcp_novacv_get_templates` 命令获取所有可用的简历模板。
 
 ### 生成简历
 
-使用 `/generate_resume` 命令并提供 JSON Resume 数据和模板名称生成 PDF 简历。
+使用 `mcp_novacv_generate_resume_from_text` 命令并提供简历文本内容和模板名称生成 PDF 简历。
 
 ### 分析简历文本
 
-使用 `/analyze_resume_text` 命令分析纯文本简历内容。
+使用 `mcp_novacv_analyze_resume_text` 命令分析纯文本简历内容。
+
+### 转换简历文本为 JSON Resume
+
+使用 `mcp_novacv_convert_resume_text` 命令将简历文本转换为结构化的 JSON Resume 格式。
 
 ## 开发
 
